@@ -80,7 +80,7 @@ def run_cuff_norm(transcripts, sorted_sam_paths, output_path, overwrite=False):
     :return:
     """
     if not os.path.exists(output_path) or overwrite:
-        cmd = 'cuffnorm -p 4 -o %s %s' % (output_path, transcripts)
+        cmd = 'cuffnorm -p 4 -o %s %s ' % (output_path, transcripts)
         for sam_file in sorted_sam_paths:
             cmd += '%s ' % sam_file
         execute_on_command_line(cmd)
