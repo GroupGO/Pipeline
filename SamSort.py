@@ -20,7 +20,6 @@ and function names, as well as more extensive doc-strings.
 import subprocess
 import sys
 import os
-import re
 
 
 def execute_on_command_line(cmd_string):
@@ -31,7 +30,7 @@ def execute_on_command_line(cmd_string):
     """
     assert isinstance(cmd_string, str), 'Command Line String must be of type string.'
     exit_code = subprocess.check_call(cmd_string, shell=True)
-    if exit_code != 0:
+    if exit_code == 1:
         exit('Critical Command Line Error: %s' % cmd_string)
 
 
@@ -58,27 +57,31 @@ def get_command_line_arguments(default_variable_values):
     return input_variables
 
 
-def sort_sam(sam_file_path, overwrite=False):
+def sort_sam(sam_file_name, overwrite=False):
     """
-    Method to run samtools sort on command line to sort a given SAM file to a given Sorted SAM
+    Method to run samtools sort on command line to sort a given SAM file to a given Sorted BAM
     file.
 
-    :param sam_file_path: Directory of the input SAM file.
+    :param sam_file_name: Directory of the input SAM file.
     :param overwrite: [True/False] statement that determines whether files are overwritten or not.
     """
-    bam_output_path = '%s.bam' % ''.join(sam_file_path.split('.')[0:-1])
-    #print bam_output_path
-    bam_sorted_output_path = '%s.sorted' % ''.join(sam_file_path.split('.')[0:-1])
-    #print bam_sorted_output_path
-    #exit()
-    if not os.path.exists(bam_output_path) or overwrite:
-        print('Sorting SAM file %s' % sam_file_path)
-        cmd = '{0} view -S {1} -b -o {2}; {0} sort {2} {3}'.format(
-            'samtools', sam_file_path, bam_output_path,bam_sorted_output_path)
+    file_path = ''.join(sam_file_name.split('.')[0:-1])
+    file_name = ''.join(file_path.split('/')[-1])
+    sorted_bam_output_path = '%s.sorted' % file_path
+    bam_output_path = '%s.bam' % file_path
+    if not os.path.exists(sorted_bam_output_path) or overwrite:
+        print('Sorting SAM file %s' % sam_file_name)
+        print('Output Bam File: %s' % bam_output_path)
+        print('Output sorted Bam File: %s' % sorted_bam_output_path)
+        cmd = '{0} view -S {1} -b -o {2};' \
+              '{0} sort {2} {3}'.format(
+            'samtools', sam_file_name, bam_output_path, sorted_bam_output_path, file_name)
+        # cmd = 'sort -k 3,3 -k4,4n %s %s' % (sam_file_name, bam_output_path)
+        print(cmd)
         execute_on_command_line(cmd)
-        print('Sorted SAM file saved to %s' % bam_output_path)
+        print('Sorted BAM file saved to %s' % sorted_bam_output_path)
     else:
-        print('Output Directory %s already exists. Not overwritten.' % bam_output_path)
+        print('Output Directory %s already exists. Not overwritten.' % sorted_bam_output_path)
 
 
 def main():
@@ -86,7 +89,7 @@ def main():
     Method designed to sort a given SAM file using SAMTOOLS sort.
     """
     sam_file_path, overwrite = get_command_line_arguments(['', False])
-    assert os.path.exists(sam_file_path), '%s file does not exist.' % sam_file_path
+    assert os.path.exists(sam_file_path), '%s directory does not exist.' % sam_file_path
     sort_sam(sam_file_path, overwrite)
 
 
