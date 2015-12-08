@@ -17,6 +17,7 @@ and function names, as well as more extensive doc-strings.
 
 
 import subprocess
+import datetime
 import sys
 import os
 import re
@@ -110,6 +111,8 @@ def run_his_hat_2(split_data_folder, genome_folder, his_hat_output):
     forward_reads = sorted(get_file_of_extension(split_data_folder, '_forward.fastq'))
     reverse_reads = sorted(get_file_of_extension(split_data_folder, '_reverse.fastq'))
     for forward, reverse in zip(forward_reads, reverse_reads):
+        print('running on %s and %s' % (forward, reverse))
+        print(datetime.datetime.now())
         cmd = 'python Mapping.py %s %s %s' % (genome_path, forward, reverse)
         execute_on_command_line(cmd)
     execute_on_command_line('mv *.sam %s' % his_hat_output)
@@ -122,15 +125,15 @@ def run_samsorter(his_hat_folder):
     :param his_hat_folder: Path leading to the hisat folder
     """
     for sam_file_path in os.listdir(his_hat_folder):
-        if sam_file_path.endswith('test_100.sam'):
-            cmd = 'python SamSort.py %s/%s %s' % (his_hat_folder, sam_file_path,False)
+        if sam_file_path.endswith('.sam'):
+            cmd = 'python SamSort.py %s/%s %s' % (his_hat_folder, sam_file_path, False)
             execute_on_command_line(cmd)
 
 
 def run_cufflinks(sorted_bam_path, annotation, output_folder_path, overwrite=False):
     for file_name in os.listdir(sorted_bam_path):
-        if file_name.endswith('test_100.sorted.bam'):
-            dirname = '%s/%s' % (output_folder_path, re.sub('.sorted.bam', '', file_name))
+        if file_name.endswith('.sorted.bam'):
+            dirname = '%s/%s' % (output_folder_path, re.sub('\.sorted\.bam', '', file_name))
             make_directory(dirname)
             cmd = 'python CuffLinks.py %s/%s %s %s %s' % \
                   (sorted_bam_path, file_name, annotation, dirname, overwrite)
@@ -148,8 +151,9 @@ def output_check(file_names, output_folder, extension, overwrite=False):
         return False
 
 
-def run_cuff_merge(cufflinks_folder, cuffmerge_folder, run_name):
-    cmd = 'python CuffMerge.py %s %s %s %s' % (cufflinks_folder, cuffmerge_folder, run_name, False)
+def run_cuff_merge(cufflinks_folder, cuffmerge_folder, run_name, overwrite):
+    cmd = 'python CuffMerge.py %s %s %s %s' % (cufflinks_folder, cuffmerge_folder, run_name,
+                                               overwrite)
     execute_on_command_line(cmd)
 
 
@@ -161,58 +165,73 @@ def run_cuff_norm(transcripts, sam_path, output_folder, overwrite):
 
 
 def main():
-    #/local/data/BIF30806_2015_2/project/RNAseq/SRP041695
     run_name, rna_seq_folder, genome_folder, output_folder = \
-        get_command_line_arguments(['Test',
-                                    '/local/data/BIF30806_2015_2/project/groups/go/Data/',
+        get_command_line_arguments(['Prabal',
+                                    '/local/data/BIF30806_2015_2/project/groups/go/RNA_SEQ',
                                     '/local/data/BIF30806_2015_2/project/genomes/Catharanthus_roseus',
                                     '/local/data/BIF30806_2015_2/project/groups/go/Data'])
-    file_names = [i[0:-6] for i in os.listdir(output_folder) if i.endswith('.fastq')]
+    file_names = [i[0:-6] for i in os.listdir(rna_seq_folder) if i.endswith('.fastq')]
+    print(file_names)
+    overwrite = [False, True, True, True, True]
 
     # Splitter
-    split_folder = '%s/Split_test_Data' % output_folder
-    if output_check(file_names, output_folder, '_forward.fastq'):
+    print('\nSPLITTING------------------------------------------------------')
+    split_folder = '%s/Split_Data' % output_folder
+    print('Split: %s' % output_check(file_names, output_folder, '_forward.fastq'))
+    # if output_check(file_names, output_folder, '_forward.fastq') or overwrite[0]:
+    if overwrite[0]:
         run_splitter(rna_seq_folder, split_folder)
+    else:
+        print('Spliting aborted.')
 
     # Mapper
-    his_hat_output = '%s/Hisat2_test_Data' % output_folder
-    if output_check(file_names, his_hat_output, '.bam') or True:
+    print('\nMAPPING--------------------------------------------------------')
+    his_hat_output = '%s/Hisat2_Data' % output_folder
+    # if output_check(file_names, his_hat_output, '.sam') or overwrite[1]:
+    make_directory(his_hat_output)
+    if overwrite[1]:
         run_his_hat_2(split_folder, genome_folder, his_hat_output)
-    quit()
+    else:
+        print('Mapping aborted.')
+
     # Sorter
-    run_samsorter(his_hat_output) #CURRENTLY ONLY WORKS ON *test.sam !!!!!!!!!!
+    print('\nSORTING---------------------------------------------------------')
+    run_samsorter(his_hat_output)
 
     # Cuff package
-    cuff_folder = '%s/Cuff_test_Data' % output_folder
+    cuff_folder = '%s/Cuff_Data' % output_folder
     make_directory(cuff_folder)
 
     # Cufflinks
-    cufflinks_folder = '%s/Cufflinks_test_Data' % cuff_folder
-    if output_check(file_names, cufflinks_folder, ''):
+    print('\nCUFFLINKS-------------------------------------------------------')
+    cufflinks_folder = '%s/Cufflinks_Data' % cuff_folder
+    if output_check(file_names, cufflinks_folder, '') or overwrite[2]:
         run_cufflinks(his_hat_output, '%s/cro_std_maker_anno.final.gff3' %
-                      genome_folder, cufflinks_folder, False)
+                      genome_folder, cufflinks_folder, overwrite[2])
     else:
         print cufflinks_folder+'\nCufflinks directory exists'
 
     # Cuffmerge
-    cuffmerge_folder = '%s/Cuffmerge_test_Data' % cuff_folder
-    if output_check(['merged'], cuffmerge_folder, '.gtf'):
-        run_cuff_merge(cufflinks_folder, cuffmerge_folder, run_name)
+    print('\nCUFFMERGE-------------------------------------------------------')
+    cuffmerge_folder = '%s/Cuffmerge_Data' % cuff_folder
+    if output_check(['merged'], cuffmerge_folder, '.gtf') or overwrite[3]:
+        run_cuff_merge(cufflinks_folder, cuffmerge_folder, run_name, overwrite[3])
     else:
         print cuffmerge_folder+'\nCuffmerge directory exists'
 
     # Cuffnorm
+    print('\nCUFFNROM--------------------------------------------------------')
     cuffnorm_folder = '%s/Cuffnorm_Data' % cuff_folder
     make_directory(cuffnorm_folder)
-    norm_run_folder = '%s/%s' % (cuffnorm_folder,run_name)
+    norm_run_folder = '%s/%s' % (cuffnorm_folder, run_name)
     make_directory(norm_run_folder)
-    if output_check(norm_run_folder, cuffnorm_folder, ''):
+    if output_check(norm_run_folder, cuffnorm_folder, '') or overwrite[4]:
         transcript_path = '%s/merged.gtf' % cuffmerge_folder
         sam_paths = ['%s/%s.sorted.bam' % (his_hat_output, a_file) for a_file in file_names]
         cuff_norm_output = '%s/%s' % (cuffnorm_folder, run_name)
-        run_cuff_norm(transcript_path, sam_paths, cuff_norm_output, False)
+        run_cuff_norm(transcript_path, sam_paths, cuff_norm_output, overwrite[4])
     else:
-        exit('Cuffnorm failed')
+        print('Cuffnorm failed')
 
     # Find Differential Expression
     # BLAST2GO
